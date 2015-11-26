@@ -32,7 +32,7 @@ class TaggedCacheTest extends BaseTestCase
         $this->assertCount(1, $this->cacheKernel->getPathsForTag('tag_two'));
 
         $request = Request::create('https://www.dantleech.com/foobar/barfoo');
-        $this->testKernel->response = $this->createCachedResponse();
+        $this->testKernel->response = $this->createCachedResponse('hello');
         $this->testKernel->response->headers->set(TaggedCache::HEADER_TAGS, json_encode(array('tag_one')));
         $this->cacheKernel->handle($request);
 

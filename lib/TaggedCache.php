@@ -51,7 +51,6 @@ class TaggedCache implements HttpKernelInterface
         $response = $this->kernel->handle($request, $type, $catch);
 
         if (!$response->headers->has(self::HEADER_TAGS)) {
-            var_dump($this->kernel);die();;
             return $response;
         }
 
@@ -166,9 +165,9 @@ class TaggedCache implements HttpKernelInterface
         }
 
         $tagsRaw = $headers->get(self::HEADER_TAGS);
-        $tags = json_decode($tagsRaw);
+        $tags = json_decode($tagsRaw, true);
 
-        if (false === $tags) {
+        if (null === $tags) {
             throw new \RuntimeException(sprintf(
                 'Could not JSON decode tags header with value "%s"',
                 $tagsRaw

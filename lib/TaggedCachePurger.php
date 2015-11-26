@@ -13,7 +13,7 @@ class TaggedCachePurger
     {
         if (null === $purgeUrl) {
             $request = Request::createFromGlobals();
-            $purgeUrl = $request->getPathInfo();
+            $purgeUrl = $request->getSchemeAndHttpHost();
         }
 
         $this->purgeUrl = $purgeUrl;
@@ -32,9 +32,11 @@ class TaggedCachePurger
             )
         ));
         $context = stream_context_create($request);
-        $contents = file_get_contents($this->purgeUrl, false, $context);
+        $contents = file_get_contents($this->purgeUrl, false);
+        die('asd');
 
         $return = json_decode($contents, true);
+        var_dump($return);die();;
 
         if (!$return) {
             throw new \RuntimeException(sprintf(
