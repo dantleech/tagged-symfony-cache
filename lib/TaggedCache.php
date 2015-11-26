@@ -8,12 +8,13 @@ use Symfony\Component\HttpKernel\HttpCache\Store;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\HeaderBag;
+use Symfony\Component\HttpFoundation\JsonResponse;
 
 class TaggedCache implements HttpKernelInterface
 {
     const HEADER_TAGS = 'X-TaggedCache-Tags';
     const HEADER_CONTENT_DIGEST = 'X-Content-Digest';
-    const METHOD_PURGE_TAG = 'PURGE_TAG';
+    const HEADER_DO_PURGE = 'X-TaggedCache-Purge';
 
     private $kernel;
     private $store;
@@ -33,17 +34,30 @@ class TaggedCache implements HttpKernelInterface
      */
     public function handle(Request $request, $type = self::MASTER_REQUEST, $catch = true)
     {
-        if ($request->getMethod() == self::METHOD_PURGE_TAG) {
-            $this->purgeTags($request);
+        if ($type !== self::MASTER_REQUEST) {
+            return $this->kernel->handle($request, $type, $catch);
+        }
+
+        // the built-in PHP webserver does not support the PURGE method
+        // so we use a custom header instead.
+        if ($request->headers->has(self::HEADER_DO_PURGE)) {
+            $nbCacheEntries = $this->purgeTags($request);
+            return new JsonResponse(array(
+                'Status' => 'PURGED',
+                'NbCacheEntries' => $nbCacheEntries
+            ));
         }
 
         $response = $this->kernel->handle($request, $type, $catch);
 
         if (!$response->headers->has(self::HEADER_TAGS)) {
-            return;
+            var_dump($this->kernel);die();;
+            return $response;
         }
 
         $this->handleTags($response);
+
+        return $response;
     }
 
     /**
@@ -77,6 +91,7 @@ class TaggedCache implements HttpKernelInterface
     private function purgeTags(Request $request)
     {
         $tags = $this->getTagsFromHeaders($request->headers);
+        $purgeCount = 0;
 
         foreach ($tags as $tag) {
             $tagPath = $this->getTagPath($tag);
@@ -85,11 +100,14 @@ class TaggedCache implements HttpKernelInterface
             // remove cache entries
             foreach ($paths as $path) {
                 $this->filesystem->remove($path);
+                $purgeCount++;
             }
 
             // remove the tag directory
             $this->filesystem->remove($tagPath);
         }
+
+        return $purgeCount;
     }
 
     private function handleTags(Response $response)

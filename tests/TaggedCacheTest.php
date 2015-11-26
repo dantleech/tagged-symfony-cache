@@ -4,40 +4,19 @@ namespace DTL\TaggedHttpCache\Tests;
 
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\HttpCache\HttpCache;
-use Symfony\Component\EventDispatcher\EventDispatcher;
-use Symfony\Component\HttpKernel\Controller\ControllerResolver;
 use DTL\TaggedHttpCache\Tests\Kernel\DummyKernel;
 use DTL\TaggedHttpCache\TaggedCache;
 use Symfony\Component\HttpKernel\HttpCache\Store;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Filesystem\Filesystem;
 
-class TaggedCacheTest extends \PHPUnit_Framework_TestCase
+class TaggedCacheTest extends BaseTestCase
 {
-    private $testKernel;
-    private $cacheKernel;
-    private $filesystem;
-
-    public function setUp()
-    {
-        $this->filesystem = new Filesystem();
-        $this->testKernel = new DummyKernel($this->createCachedResponse());
-        $this->testKernel->response->setMaxAge(600);
-        $this->testKernel->response->setSharedMaxAge(600);
-        $store = new Store(__DIR__ . '/cache');
-        $cache = new HttpCache($this->testKernel, $store);
-        $this->cacheKernel = new TaggedCache($cache, $store, __DIR__ . '/cache/tags');
-    }
-
-    public function tearDown()
-    {
-        $this->filesystem->remove(__DIR__ . '/cache');
-    }
-
     public function testCache()
     {
         $request = Request::create('https://www.dantleech.com/foobar');
-        $this->cacheKernel->handle($request);
+        $response = $this->cacheKernel->handle($request);
+        $this->assertInstanceOf(Response::class, $response);
     }
 
     /**
@@ -71,17 +50,9 @@ class TaggedCacheTest extends \PHPUnit_Framework_TestCase
         $this->cacheKernel->handle($request);
         $this->assertCount(1, $this->cacheKernel->getPathsForTag('tag_one'));
 
-        $request = Request::create('https://www.dantleech.com/foobar', TaggedCache::METHOD_PURGE_TAG);
+        $request = Request::create('https://www.dantleech.com/foobar');
+        $request->headers->set(TaggedCache::HEADER_DO_PURGE, 'yes');
         $request->headers->set(TaggedCache::HEADER_TAGS, json_encode(array('tag_one', 'tag_two')));
         $this->cacheKernel->handle($request);
-    }
-
-    private function createCachedResponse()
-    {
-        $response = new Response();
-        $response->setMaxAge(600);
-        $response->setSharedMaxAge(600);
-
-        return $response;
     }
 }
