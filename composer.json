@@ -1,0 +1,28 @@
+{
+    "name": "dantleech/tagged-http-cache",
+    "description": "Tagged HTTP cache middleware",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Daniel Leech",
+            "email": "daniel@dantleech.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {
+        "symfony/http-kernel": "~2.6",
+        "symfony/filesystem": "~2.6",
+        "symfony/http-foundation": "~2.6"
+    },
+    "autoload": {
+        "psr-4": {
+            "DTL\\TaggedHttpCache\\": "lib"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "DTL\\TaggedHttpCache\\Tests\\": "tests"
+        }
+    }
+}
