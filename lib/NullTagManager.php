@@ -2,7 +2,7 @@
 
 namespace DTL\TaggedHttpCache;
 
-class TagManager implements TagManagerInterface
+class NullTagManager implements TagManagerInterface
 {
     /**
      * {@inheritdoc}
