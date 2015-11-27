@@ -11,7 +11,7 @@ use DTL\TaggedHttpCache\TaggedCachePurger;
  *
  * php -S localhost:8000 tests/App/web.php
  */
-class TaggedCachePurgerTest extends BaseTestCase
+class TaggedCachePurgerTest extends TaggedCacheTestCase
 {
     public function testPurger()
     {
@@ -19,18 +19,18 @@ class TaggedCachePurgerTest extends BaseTestCase
         $this->testKernel->response = $this->createCachedResponse('one');
         $this->testKernel->response->headers->set(TaggedCache::HEADER_TAGS, json_encode(array('tag_one')));
         $this->cacheKernel->handle($request);
-        $this->assertCount(1, $this->cacheKernel->getPathsForTag('tag_one'));
+        $this->assertCount(1, $this->manager->getPathsForTag('tag_one'));
 
         $request = Request::create('/');
         $this->testKernel->response = $this->createCachedResponse('two');
         $this->testKernel->response->headers->set(TaggedCache::HEADER_TAGS, json_encode(array('tag_one')));
         $this->cacheKernel->handle($request);
-        $this->assertCount(2, $this->cacheKernel->getPathsForTag('tag_one'));
+        $this->assertCount(2, $this->manager->getPathsForTag('tag_one'));
 
-        $purger = new TaggedCachePurger('http://localhost:8000');
+        $purger = new TaggedCachePurger(array('http://localhost:8000'));
         $return = $purger->invalidate(array('tag_one'));
         $this->assertEquals('PURGED', $return['Status']);
         $this->assertEquals(2, $return['NbCacheEntries']);
-        $this->assertCount(0, $this->cacheKernel->getPathsForTag('tag_one'));
+        $this->assertCount(0, $this->manager->getPathsForTag('tag_one'));
     }
 }

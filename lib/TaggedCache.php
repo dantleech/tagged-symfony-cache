@@ -17,16 +17,11 @@ class TaggedCache implements HttpKernelInterface
     const HEADER_DO_PURGE = 'X-TaggedCache-Purge';
 
     private $kernel;
-    private $store;
-    private $baseTagPath;
-    private $filesystem;
 
-    public function __construct(HttpKernelInterface $kernel, Store $store, $baseTagPath)
+    public function __construct(HttpKernelInterface $kernel, TagManagerInterface $tagManager)
     {
         $this->kernel = $kernel;
-        $this->store = $store;
-        $this->baseTagPath = $baseTagPath;
-        $this->filesystem = new Filesystem();
+        $this->tagManager = $tagManager;
     }
 
     /**
@@ -41,11 +36,7 @@ class TaggedCache implements HttpKernelInterface
         // the built-in PHP webserver does not support the PURGE method
         // so we use a custom header instead.
         if ($request->headers->has(self::HEADER_DO_PURGE)) {
-            $nbCacheEntries = $this->purgeTags($request);
-            return new JsonResponse(array(
-                'Status' => 'PURGED',
-                'NbCacheEntries' => $nbCacheEntries
-            ));
+            return $this->handleInvalidate($request);
         }
 
         $response = $this->kernel->handle($request, $type, $catch);
@@ -59,54 +50,15 @@ class TaggedCache implements HttpKernelInterface
         return $response;
     }
 
-    /**
-     * Return the concrete cache paths for the given tag.
-     *
-     * @param string $tag
-     * @return string[]
-     */
-    public function getPathsForTag($tag)
-    {
-        $tagPath = $this->getTagPath($tag);
-
-        if (!file_exists($tagPath)) {
-            return array();
-        }
-
-        $filenames = scandir($tagPath);
-        $paths = array();
-
-        foreach ($filenames as $filename) {
-            if (in_array($filename, array('.', '..'))) {
-                continue;
-            }
-
-            $paths[] = realpath($tagPath . '/' . $filename);
-        }
-
-        return $paths;
-    }
-
-    private function purgeTags(Request $request)
+    private function handleInvalidate(Request $request)
     {
         $tags = $this->getTagsFromHeaders($request->headers);
-        $purgeCount = 0;
+        $nbCacheEntries = $this->tagManager->invalidateTags($tags);
 
-        foreach ($tags as $tag) {
-            $tagPath = $this->getTagPath($tag);
-            $paths = $this->getPathsForTag($tag);
-
-            // remove cache entries
-            foreach ($paths as $path) {
-                $this->filesystem->remove($path);
-                $purgeCount++;
-            }
-
-            // remove the tag directory
-            $this->filesystem->remove($tagPath);
-        }
-
-        return $purgeCount;
+        return new JsonResponse(array(
+            'Status' => 'PURGED',
+            'NbCacheEntries' => $nbCacheEntries
+        ));
     }
 
     private function handleTags(Response $response)
@@ -122,37 +74,8 @@ class TaggedCache implements HttpKernelInterface
         $tags = $this->getTagsFromHeaders($response->headers);
 
         foreach ($tags as $tag) {
-            $this->createTag($tag, $contentDigest);
+            $this->tagManager->createTag($tag, $contentDigest);
         }
-    }
-
-    private function createTag($tag, $contentDigest)
-    {
-        $tagPath = $this->getTagPath($tag);
-
-        if (false === file_exists($tagPath)) {
-            $this->filesystem->mkdir($tagPath);
-        }
-
-        $symlinkDest = $tagPath . '/' . $contentDigest;
-        $symlinkOrig = $this->store->getPath($contentDigest);
-
-        if (file_exists($symlinkDest)) {
-            $this->filesystem->remove($symlinkDest);
-        }
-
-        $this->filesystem->symlink($symlinkOrig, $symlinkDest);
-    }
-
-    private function escapeTag($tag)
-    {
-        $tag = preg_replace('/[^A-Za-z0-9_\-]/', '_', $tag);
-        return $tag;
-    }
-
-    private function getTagPath($tag)
-    {
-        return $this->baseTagPath . '/' . $this->escapeTag($tag);
     }
 
     private function getTagsFromHeaders(HeaderBag $headers)

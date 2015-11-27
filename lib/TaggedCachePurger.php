@@ -7,16 +7,11 @@ use Symfony\Component\HttpFoundation\Request;
 
 class TaggedCachePurger
 {
-    private $purgeUrl;
+    private $purgeUrls;
 
-    public function __construct($purgeUrl = null)
+    public function __construct(array $purgeUrls = array())
     {
-        if (null === $purgeUrl) {
-            $request = Request::createFromGlobals();
-            $purgeUrl = $request->getSchemeAndHttpHost();
-        }
-
-        $this->purgeUrl = $purgeUrl;
+        $this->purgeUrls = $purgeUrls;
     }
 
     public function invalidate(array $tags)
@@ -32,17 +27,18 @@ class TaggedCachePurger
             )
         ));
         $context = stream_context_create($request);
-        $contents = file_get_contents($this->purgeUrl, false);
-        die('asd');
 
-        $return = json_decode($contents, true);
-        var_dump($return);die();;
+        foreach ($this->purgeUrls as $purgeUrl) {
+            $contents = file_get_contents($purgeUrl, false, $context);
 
-        if (!$return) {
-            throw new \RuntimeException(sprintf(
-                'Could not decode JSON response from HTTP cache: "%s"',
-                $contents
-            ));
+            $return = json_decode($contents, true);
+
+            if (!$return) {
+                throw new \RuntimeException(sprintf(
+                    'Could not decode JSON response from HTTP cache: "%s"',
+                    $contents
+                ));
+            }
         }
 
         return $return;
